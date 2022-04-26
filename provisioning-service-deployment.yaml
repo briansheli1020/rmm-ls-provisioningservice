@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rmm-license-servera
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: rmm-license-server
+  name: provisioning-service
+  labels:
+    app.name: provisioning-service
+spec:
+  selector:
+    matchLabels:
+      app.name: provisioning-service 
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app.name: provisioning-service
+    spec:
+      containers:
+      - image: 889552833644.dkr.ecr.us-east-2.amazonaws.com/rmm_license_server_provisioning_service:v1
+        imagePullPolicy: Always
+        name: provisioning-service  
+        ports:
+        - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: rmm-license-server 
+  name: service-provisioning-service
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: NodePort
+  selector:
+    app.name: provisioning-service
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: rmm-license-server
+  name: ingress-provisioning-service
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:889552833644:certificate/8c3d8f18-db2f-4aec-b2d6-7fa5380b580b
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/group.name: rmm-license-service-group
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+
+spec:
+  rules:
+    - host: "license-server-stg.mw-rmm.barracudamsp.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: service-provisioning-service
+                port:
+                  number: 80
+              
